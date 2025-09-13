@@ -16,6 +16,27 @@ const NEXT_ID_KEY = 'nextId';
 
 let context: vscode.ExtensionContext;
 
+// const DEFAULT_BUTTONS: Button[] = [
+//     {
+//         id: 1,
+//         name: 'FastAPI',
+//         img: 'https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png',
+//         text: 'Create a FastAPI project: A modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.',
+//     },
+//     {
+//         id: 2,
+//         name: 'Flask',
+//         img: 'https://i.ibb.co/0R0BWcyP/image-psd-1.png',
+//         text: 'Create a Flask project: A lightweight WSGI web application framework in Python, ideal for simple web apps and APIs.',
+//     },
+//     {
+//         id: 3,
+//         name: 'React App',
+//         img: 'https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg',
+//         text: 'Create a React project: A JavaScript library for building user interfaces, commonly used for single-page applications.',
+//     },
+// ];
+
 /**
  * Initializes the module with the extension context.
  */

@@ -1,8 +1,6 @@
 import type { ProjectPlan } from './types';
 
-/**
- * Calls Gemini API to turn a user prompt into a structured ProjectPlan.
- */
+
 export async function planFromPrompt(prompt: string): Promise<ProjectPlan> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY env variable not set');

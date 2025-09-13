@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AutoEnv</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+  darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+  <div class="max-w-6xl mx-auto p-4">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <h2 class="text-2xl font-semibold mb-3">Rocketize 🚀</h2>
+        <div id="buttons-list" class="grid grid-cols-3 gap-4"></div>
+        <!-- Add Button (Floating +) -->
+        <button id="open-modal-btn" class="fixed bottom-8 right-8 z-50 rounded-full bg-primary-600 hover:bg-primary-500 text-white w-14 h-14 flex items-center justify-center shadow-lg text-3xl focus:outline-none" title="Create Button">
+            +
+        </button>
+
+        <!-- Modal Overlay -->
+        <div id="create-modal-overlay" class="fixed inset-0 bg-black bg-opacity-40 z-40 hidden"></div>
+
+        <!-- Modal Dialog -->
+        <div id="create-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg p-6 bg-white dark:bg-gray-800 w-full max-w-md relative">
+                <button id="close-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl focus:outline-none" title="Close">&times;</button>
+                <h4 class="text-lg font-semibold mb-2">Create a Button</h4>
+                <label for="btn-name" class="block text-xs text-gray-600 dark:text-gray-400">Name</label>
+                <input id="btn-name" type="text" placeholder="Button name" class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:outline-none p-2" />
+                <label for="btn-img" class="block text-xs text-gray-600 dark:text-gray-400 mt-2">Image URL</label>
+                <input id="btn-img" type="url" placeholder="https://..." class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:outline-none p-2" />
+                <label for="btn-text" class="block text-xs text-gray-600 dark:text-gray-400 mt-2">Long Text</label>
+                <textarea id="btn-text" rows="5" placeholder="Enter long description..." class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:outline-none p-2"></textarea>
+                <div class="mt-3">
+                    <button id="btn-add" class="inline-flex items-center gap-2 rounded-md bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 text-sm">Add Button</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Modal logic
+            const openModalBtn = document.getElementById('open-modal-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const modal = document.getElementById('create-modal');
+            const overlay = document.getElementById('create-modal-overlay');
+
+            function openModal() {
+                modal.classList.remove('hidden');
+                overlay.classList.remove('hidden');
+                document.getElementById('btn-name').focus();
+            }
+            function closeModal() {
+                modal.classList.add('hidden');
+                overlay.classList.add('hidden');
+            }
+
+            openModalBtn.addEventListener('click', openModal);
+            closeModalBtn.addEventListener('click', closeModal);
+            overlay.addEventListener('click', closeModal);
+
+            // Optional: close modal on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (!modal.classList.contains('hidden') && e.key === 'Escape') closeModal();
+            });
+
+            // Move btn-add logic to close modal after add
+            document.getElementById('btn-add').addEventListener('click', () => {
+                closeModal();
+            });
+        </script>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+
+    
+
+    // Render buttons list
+    function renderButtons(items = []) {
+      const container = document.getElementById('buttons-list');
+      if (!Array.isArray(items) || items.length === 0) {
+  container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No buttons yet. Create the first one above.</p>';
+        return;
+      }
+      container.innerHTML = items.map(function(b){
+        const safeName = String(b.name || '');
+  const safeImg = b.img ? '<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="' + String(b.img) + '" alt="' + safeName + '">' : '';
+        const safeText = String(b.text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return [
+        '<a id=' + b.id + '>',
+          '<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">',
+            safeImg,
+            '<div class="flex items-start gap-3">',
+              '<div class="flex-1">',
+                '<h4 class="text-base font-semibold">' + safeName + '</h4>',
+              '</div>',
+            '</div>',
+            // add X icon to delete button
+            '<button class="text-red-500 hover:text-red-700" onclick="deleteButton(' + b.id + ')">X</button>',
+          '</div>',
+        '</a>'
+        ].join('');
+      }).join('');
+    }
+
+    // Receive data from extension
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg && msg.type === 'buttons:data') {
+        renderButtons(msg.items || []);
+      }
+    });
+
+
+    function planFromPrompt(prompt) {
+        vscode.postMessage({ type: 'submit', prompt });
+    }
+
+    // Attach click listeners to all button elements with id starting with 'b-'
+    function attachButtonListeners() {
+        const container = document.getElementById('buttons-list');
+        if (!container) return;
+        const buttons = container.querySelectorAll('[id^="b-"]');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                // Prevent triggering on delete button
+                if (e.target.tagName === 'BUTTON') return;
+                const prompt = btn.getAttribute('data-prompt');
+                if (prompt) planFromPrompt(prompt);
+            });
+        });
+    }
+
+    // Patch renderButtons to include data-prompt and call attachButtonListeners
+    const origRenderButtons = renderButtons;
+    renderButtons = function(items = []) {
+        const container = document.getElementById('buttons-list');
+        if (!Array.isArray(items) || items.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No buttons yet. Create the first one above.</p>';
+            return;
+        }
+        container.innerHTML = items.map(function(b){
+            const safeName = String(b.name || '');
+            const safeImg = b.img ? '<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="' + String(b.img) + '" alt="' + safeName + '">' : '';
+            const safeText = String(b.text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            // Use id 'b-' + b.id and store prompt in data-prompt
+            return [
+                '<a id="b-' + b.id + '" data-prompt="' + (b.prompt ? String(b.prompt).replace(/"/g, '&quot;') : safeText) + '">',
+                    '<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">',
+                        safeImg,
+                        '<div class="flex items-start gap-3">',
+                            '<div class="flex-1">',
+                                '<h4 class="text-base font-semibold">' + safeName + '</h4>',
+                            '</div>',
+                        '</div>',
+                        '<button class="text-red-500 hover:text-red-700" onclick="deleteButton(' + b.id + ')">X</button>',
+                    '</div>',
+                '</a>'
+            ].join('');
+        }).join('');
+        attachButtonListeners();
+    };
+
+    // Form: create button
+    document.getElementById('btn-add').addEventListener('click', () => {
+      const name = String(document.getElementById('btn-name').value || '').trim();
+      const img = String(document.getElementById('btn-img').value || '').trim();
+      const text = String(document.getElementById('btn-text').value || '').trim();
+      if (!name) {
+        alert('Please provide a name');
+        return;
+      }
+      vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
+      document.getElementById('btn-name').value = '';
+      document.getElementById('btn-img').value = '';
+      document.getElementById('btn-text').value = '';
+    });
+
+    // On load: request list
+    vscode.postMessage({ type: 'buttons:list' });
+  </script>
+  <script>
+    // Map VS Code webview theme to Tailwind dark mode
+    function applyVscodeTheme() {
+      const isDark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+    applyVscodeTheme();
+    const mo = new MutationObserver(applyVscodeTheme);
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  </script>
+</body>
+</html>
