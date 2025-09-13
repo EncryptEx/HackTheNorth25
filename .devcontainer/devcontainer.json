@@ -1,0 +1,5 @@
+{
+  "name": "AutoEnv Wizard Dev",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bullseye",
+  "features": {}
+}

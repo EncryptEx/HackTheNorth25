@@ -1,0 +1,38 @@
+{
+  "name": "autoenv-wizard",
+  "displayName": "AutoEnv Wizard",
+  "description": "Spin up a ready-to-code environment from a plain-English prompt. Creates venv/devcontainer, installs deps, scaffolds files, and configures VS Code.",
+  "version": "0.0.1",
+  "publisher": "your-name-or-org",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:autoenv.newProject"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "autoenv.newProject",
+        "title": "AutoEnv: New Project from Prompt"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.89.0",
+    "typescript": "^5.4.0"
+  },
+  "license": "MIT"
+}
