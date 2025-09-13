@@ -1,72 +1,82 @@
 import type { ProjectPlan } from './types';
 
 /**
- * Mock rules engine that turns a user prompt into a structured ProjectPlan.
- * Replace this logic with a call to your LLM provider to generate the plan.
+ * Calls Gemini API to turn a user prompt into a structured ProjectPlan.
  */
-export function planFromPrompt(prompt: string): ProjectPlan {
-  const p = prompt.toLowerCase();
-  const isPython = /(python|fastapi|flask|django|pandas|scikit|poetry|pip)/.test(p);
-  const isNode = /(node|react|next|express|typescript|npm|pnpm|yarn)/.test(p);
+export async function planFromPrompt(prompt: string): Promise<ProjectPlan> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY env variable not set');
 
-  if (isPython && !isNode) {
-    const useFastAPI = /fastapi/.test(p);
-    const deps = ['uvicorn'];
-    if (useFastAPI) deps.unshift('fastapi');
+  const SYSTEM_PROMPT = `
+  System prompt:
+You are an expert software project planner. Given a user prompt, you will create a detailed project plan in JSON format. Only use the following actions in the steps array:
+- CREATE_FILE: { args: [relativePath: string, content: string] }
+- APPEND_TO_FILE: { args: [relativePath: string, content: string] }
+- RUN_COMMAND: { args: [command: string] }
 
-    const plan: ProjectPlan = {
-      language: 'python',
-      framework: useFastAPI ? 'fastapi' : undefined,
-      dependencies: deps,
-      devDependencies: ['pytest'],
-      tools: ['black', 'ruff'],
-      createDevContainer: /dev ?container|codespaces|docker/.test(p),
-      steps: [
-        { title: 'Create folders', action: 'mkdir', args: ['src', 'tests'] },
-        { title: 'Create venv', action: 'python-venv', args: ['.venv'] },
-        { title: 'Write requirements', action: 'write-file', args: ['requirements.txt', deps.join('\n')] },
-        { title: 'Install deps', action: 'pip-install', args: ['-r', 'requirements.txt'] },
-        { title: 'Write pytest config', action: 'write-file', args: ['pytest.ini', '[pytest]\naddopts = -q'] },
-        { title: 'Write app stub', action: 'write-file', args: ['src/app.py', useFastAPI ? "from fastapi import FastAPI\napp = FastAPI()\n\n@app.get('/')\ndef read_root():\n    return {'hello':'world'}\n" : "# TODO: your app here\n"] },
-        { title: 'Write .vscode', action: 'vscode-config' },
-        { title: 'Init git', action: 'git-init' },
-      ]
-    };
-    if (plan.createDevContainer) {
-      plan.steps.push({ title: 'Write Dev Container', action: 'write-devcontainer' });
-    }
-    return plan;
-  }
+The plan should include the following fields:
+- language: string (e.g., "python")
+- framework: string | undefined (e.g., "fastapi")
+- dependencies: string[] (list of runtime dependencies)
+- devDependencies: string[] (list of development dependencies)
+- tools: string[] (list of tools to use, e.g., "black", "ruff")
+- createDevContainer: boolean (whether to create a dev container)
+- steps: { title: string, action: "CREATE_FILE" | "APPEND_TO_FILE" | "RUN_COMMAND", args?: any[] }[] (ordered steps to set up the project)
 
-  // Default to Node/Express if Node-ish terms present
-  const useExpress = /(express|api)/.test(p);
-  const useTS = /(typescript|ts)/.test(p);
-  const deps: string[] = [];
-  if (useExpress) deps.push('express');
-
-  const devDeps = ['nodemon'];
-  if (useTS) devDeps.push('typescript', '@types/node', '@types/express', 'ts-node', 'ts-node-dev');
-
-  const plan: ProjectPlan = {
-    language: 'node',
-    framework: useExpress ? 'express' : undefined,
-    dependencies: deps,
-    devDependencies: devDeps,
-    testFramework: 'vitest',
-    createDevContainer: /dev ?container|codespaces|docker/.test(p),
-    steps: [
-      { title: 'npm init', action: 'npm-init' },
-      { title: 'Install deps', action: 'npm-install', args: deps },
-      { title: 'Install devDeps', action: 'npm-install-dev', args: devDeps },
-      { title: 'Create folders', action: 'mkdir', args: ['src', 'tests'] },
-      { title: 'Write server stub', action: 'write-file', args: ['src/index.' + (useTS ? 'ts' : 'js'), useExpress ? "import express from 'express'\nconst app = express()\napp.get('/', (_, res)=>res.json({hello:'world'}))\napp.listen(3000)\n" : "console.log('Hello World')\n"] },
-      { title: 'Write package scripts', action: 'npm-scripts', args: [useTS ? 'ts' : 'js'] },
-      { title: 'Write .vscode', action: 'vscode-config' },
-      { title: 'Init git', action: 'git-init' },
-    ]
-  };
-  if (plan.createDevContainer) {
-    plan.steps.push({ title: 'Write Dev Container', action: 'write-devcontainer' });
-  }
-  return plan;
+Example output:
+{
+  "language": "python",
+  "framework": "fastapi",
+  "dependencies": ["fastapi", "uvicorn"],
+  "devDependencies": ["pytest"],
+  "tools": ["black", "ruff"],
+  "createDevContainer": true,
+  "steps": [
+    { "title": "Create app file", "action": "CREATE_FILE", "args": ["src/app.py", "from fastapi import FastAPI\\napp = FastAPI()\\n"] },
+    { "title": "Add requirements", "action": "CREATE_FILE", "args": ["requirements.txt", "fastapi\\nuvicorn"] },
+    { "title": "Install dependencies", "action": "RUN_COMMAND", "args": ["pip install -r requirements.txt"] },
+    { "title": "Add test config", "action": "CREATE_FILE", "args": ["pytest.ini", "[pytest]\\naddopts = -q"] },
+    { "title": "Append to README", "action": "APPEND_TO_FILE", "args": ["README.md", "# FastAPI Project\\n"] }
+  ]
 }
+Respond ONLY with the JSON object. Do not respond with \`\`\`.`;
+
+
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: SYSTEM_PROMPT + " User prompt: " + prompt }
+          ]
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status} ${await response.text()}`);
+  }
+  const data = await response.json() as any;
+  // Expecting the model to return a JSON string for ProjectPlan in the first candidate
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('No response from Gemini');
+  try {
+    const cleaned = text
+  .replace(/^```json\s*/i, '')
+  .replace(/^```\s*/i, '')
+  .replace(/```$/i, '')
+  .trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error('Failed to parse ProjectPlan from Gemini response: ' + text);
+  }
+}
+  
+  
+

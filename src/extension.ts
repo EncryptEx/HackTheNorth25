@@ -2,8 +2,18 @@ import * as vscode from 'vscode';
 import { PromptPanel } from './promptPanel';
 import { planFromPrompt } from './aiPlanner';
 import { executePlan } from './generator';
+import * as dotenv from "dotenv";
+
+
+
+
 
 export function activate(context: vscode.ExtensionContext) {
+  dotenv.config({ path: __dirname + "/../.env" });
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  vscode.window.showInformationMessage(`API key is ${apiKey}`);
+  
   const output = vscode.window.createOutputChannel('AutoEnv');
   const disposable = vscode.commands.registerCommand('autoenv.newProject', async () => {
     const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -20,14 +30,22 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showWarningMessage('Please describe your project.');
           return;
         }
-        const plan = planFromPrompt(prompt);
+        output.show(true);
+        output.appendLine('Generating plan with Gemini...');
+        let plan;
+        try {
+          plan = await planFromPrompt(prompt);
+        } catch (e: any) {
+          vscode.window.showErrorMessage('Failed to generate plan: ' + (e?.message || e));
+          output.appendLine('Error: ' + (e?.message || e));
+          return;
+        }
         const ok = await vscode.window.showInformationMessage(
           'AutoEnv will create files and install dependencies in this workspace. Proceed?',
           { modal: true },
           'Yes'
         );
         if (ok === 'Yes') {
-          output.show(true);
           output.appendLine('== AutoEnv Plan ==');
           output.appendLine(JSON.stringify(plan, null, 2));
           await executePlan(plan, ws, output);
