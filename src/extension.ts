@@ -3,7 +3,7 @@ import { PromptPanel } from './promptPanel';
 import { planFromPrompt } from './aiPlanner';
 import { executePlan } from './generator';
 import * as dotenv from "dotenv";
-
+import { initializeButtonModule, getAllButtons, createButton } from './buttons';
 
 
 
@@ -13,6 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
   const apiKey = process.env.GEMINI_API_KEY;
   
   vscode.window.showInformationMessage(`API key is ${apiKey}`);
+  initializeButtonModule(context);
   
   const output = vscode.window.createOutputChannel('AutoEnv');
   const disposable = vscode.commands.registerCommand('autoenv.newProject', async () => {
@@ -23,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const panel = PromptPanel.createOrShow();
-    panel.onMessage(async (msg) => {
+  panel.onMessage(async (msg) => {
       if (msg?.type === 'submit') {
         const prompt = String(msg.prompt || '').trim();
         if (!prompt) {
@@ -49,6 +50,19 @@ export function activate(context: vscode.ExtensionContext) {
           output.appendLine('== AutoEnv Plan ==');
           output.appendLine(JSON.stringify(plan, null, 2));
           await executePlan(plan, ws, output);
+        }
+      }
+      if (msg?.type === 'buttons:list') {
+        panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
+      }
+      if (msg?.type === 'buttons:create') {
+        const data = msg.data || {};
+        // basic validation
+        if (!data.name) {
+          vscode.window.showWarningMessage('Button name is required.');
+        } else {
+          createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || '') });
+          panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
         }
       }
     });
