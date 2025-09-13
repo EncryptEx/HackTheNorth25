@@ -1,10 +1,10 @@
 import os
-import argparse
 import google.generativeai as genai
+from fastapi import FastAPI
 
 # --- Configuration ---
 # 1. Install the library:
-#    pip install google-generativeai
+#    pip install google-generativeai fastapi uvicorn
 #
 # 2. Get your API key from Google AI Studio:
 #    https://aistudio.google.com/app/apikey
@@ -42,22 +42,19 @@ def generate_prompt_response(model, prompt):
     except Exception as e:
         return f"An error occurred: {e}"
 
-def main():
-    """Main function to run the prompt engineering script."""
-    parser = argparse.ArgumentParser(description="Prompt engineering script for Gemini models.")
-    parser.add_argument("prompt", type=str, help="The prompt to send to the model.")
-    parser.add_argument("--model", type=str, default="gemini-1.5-flash-latest", help="The model to use (e.g., gemini-1.5-flash-latest).")
-    args = parser.parse_args()
+app = FastAPI()
 
-    print(f"Initializing model: {args.model}...")
-    model = initialize_model(args.model)
+PREMADE_PROMPT = "Tell me a fun fact about the solar system."
 
-    if model:
-        print(f"Sending prompt: '{args.prompt}'")
-        print("-" * 20)
-        response = generate_prompt_response(model, args.prompt)
-        print("Model Response:")
-        print(response)
+@app.get("/generate")
+def generate():
+    """
+    An endpoint to generate a response from the model with a premade prompt.
+    """
+    model = initialize_model()
+    if not model:
+        return {"error": "Model could not be initialized."}
+    
+    response = generate_prompt_response(model, PREMADE_PROMPT)
+    return {"response": response}
 
-if __name__ == "__main__":
-    main()
