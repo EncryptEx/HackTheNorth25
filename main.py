@@ -1,9 +1,16 @@
 import os
 import google.generativeai as genai
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from dotenv import load_dotenv
+
+import crud, models, schemas
+from database import SessionLocal, engine
+
 load_dotenv()
+
+models.Base.metadata.create_all(bind=engine)
 
 
 # --- Configuration ---
@@ -48,6 +55,15 @@ def generate_prompt_response(model, prompt):
 
 app = FastAPI()
 
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 PREMADE_PROMPT = "Tell me a fun fact about the solar system."
 
 @app.get("/generate")
@@ -61,4 +77,22 @@ def generate():
     
     response = generate_prompt_response(model, PREMADE_PROMPT)
     return {"response": response}
+
+@app.post("/items/", response_model=schemas.Item)
+def create_item_endpoint(item: schemas.ItemCreate, db: Session = Depends(get_db)):
+    return crud.create_item(db=db, item=item)
+
+
+@app.get("/items/", response_model=list[schemas.Item])
+def read_items_endpoint(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    items = crud.get_items(db, skip=skip, limit=limit)
+    return items
+
+
+@app.get("/items/{item_id}", response_model=schemas.Item)
+def read_item_endpoint(item_id: int, db: Session = Depends(get_db)):
+    db_item = crud.get_item(db, item_id=item_id)
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db_item
 
