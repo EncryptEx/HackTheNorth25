@@ -2,6 +2,10 @@ import os
 import google.generativeai as genai
 from fastapi import FastAPI
 
+from dotenv import load_dotenv
+load_dotenv()
+
+
 # --- Configuration ---
 # 1. Install the library:
 #    pip install google-generativeai fastapi uvicorn
