@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import { PromptPanel } from './promptPanel';
-import { planFromPrompt } from './aiPlanner';
+import { fetchPossiblePreferences, planFromPrompt } from './aiPlanner';
 import { executePlan } from './generator';
 import * as dotenv from "dotenv";
 import { initializeButtonModule, getAllButtons, createButton, deleteButton } from './buttons';
 
+import { Preference } from './buttons';
 
 
 
@@ -12,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
   dotenv.config({ path: __dirname + "/../.env" });
   const apiKey = process.env.GEMINI_API_KEY;
   
-  // vscode.window.showInformationMessage(`API key is ${apiKey}`);
+  console.log(`API key is ${apiKey}`);
   initializeButtonModule(context);
   
   const output = vscode.window.createOutputChannel('AutoEnv');
@@ -61,7 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (!data.name) {
           vscode.window.showWarningMessage('Button name is required.');
         } else {
-          createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || '') });
+          createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || ''), preferences: data.preferences || {} });
           panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
         }
       }
@@ -71,10 +72,24 @@ export function activate(context: vscode.ExtensionContext) {
         deleteButton(id);
         panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
       }
-    });
+
+      if (msg?.type === 'fetchPreferences') {
+        const prompt = String(msg.prompt || '').trim();
+        if (!prompt) {
+          panel.postMessage({ type: 'fetchPreferences:response', prefs: [] });
+          return;
+        }
+        // use fetchPreferences from aiPlanner
+        fetchPossiblePreferences(prompt).then((prefs) => {
+          // update button
+          const button = getAllButtons().find(b => b.name === prompt);
+          if (button) {
+            console.log(prefs);  
+          }
+        });
+      }
   });
 
   context.subscriptions.push(disposable);
+});
 }
-
-export function deactivate() {}

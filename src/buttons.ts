@@ -4,11 +4,14 @@ import * as vscode from 'vscode';
  * Represents a button with its properties.
  * The `id` is a unique identifier.
  */
+export interface Preference { value: string[]; saved: boolean; };
+
 export interface Button {
     id: number;
     name: string;
     img: string;
     text: string;
+    preferences: Preference[];
 }
 
 const BUTTONS_KEY = 'buttons';
@@ -22,6 +25,7 @@ let context: vscode.ExtensionContext;
 //         name: 'FastAPI',
 //         img: 'https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png',
 //         text: 'Create a FastAPI project: A modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.',
+//         preferences: {"preferences":{"Version":["Latest stable","Django 4.2","Django 3.2 LTS","Django 2.2 LTS"],"Database":["SQLite (default)","PostgreSQL","MySQL","MariaDB","Oracle"],"Deployment":["Heroku","AWS Elastic Beanstalk","Google App Engine","Docker"],"Testing Framework":["pytest","unittest (built-in)","nose2"],"Frontend Integration":["None","Django Templates","React","Vue.js","Angular"]}}
 //     },
 //     {
 //         id: 2,

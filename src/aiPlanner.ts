@@ -1,4 +1,5 @@
 import type { ProjectPlan } from './types';
+import * as vscode from 'vscode';
 
 
 export async function planFromPrompt(prompt: string): Promise<ProjectPlan> {
@@ -78,7 +79,7 @@ Respond ONLY with the JSON object. Do not respond with \`\`\`.`;
   
   
 
-export async function fetchPossiblePreferences(prompt: string): Promise<string[]> {
+export async function fetchPossiblePreferences(prompt: string): Promise<any> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY env variable not set');
 
@@ -88,7 +89,7 @@ export async function fetchPossiblePreferences(prompt: string): Promise<string[]
   Example. User asks for Django, you return:
   {
     "imageUrl": "https://static.djangoproject.com/img/logos/django-logo-negative.png",
-    "preferences": [
+    {"preferences": {
       "Version": [
         "Latest stable",
         "Django 4.2",
@@ -120,7 +121,7 @@ export async function fetchPossiblePreferences(prompt: string): Promise<string[]
         "Vue.js",
         "Angular"
       ]
-    ]
+    }
   }
   Respond ONLY with the JSON object. Do not respond with \`\`\`.
   `;
@@ -149,6 +150,9 @@ export async function fetchPossiblePreferences(prompt: string): Promise<string[]
   // Expecting the model to return a JSON string for ProjectPlan in the first candidate
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('No response from Gemini');
+
+  console.log('Gemini preferences response: ' + text);
+
   try {
     const cleaned = text
   .replace(/^```json\s*/i, '')
@@ -160,13 +164,8 @@ export async function fetchPossiblePreferences(prompt: string): Promise<string[]
       throw new Error('Invalid preferences format');
     }
     // flatten to a single array of strings
-    const prefs: string[] = [];
-    for (const key of Object.keys(obj.preferences)) {
-      if (Array.isArray(obj.preferences[key])) {
-        prefs.push(...obj.preferences[key]);
-      }
-    }
-    return prefs;
+
+    return obj;
   } catch (e) {
     throw new Error('Failed to parse preferences from Gemini response: ' + text);
   }

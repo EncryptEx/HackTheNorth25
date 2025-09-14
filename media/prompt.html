@@ -40,11 +40,13 @@
         <!-- Modal Dialog -->
         <div id="create-modal" class="fixed inset-0 flex items-center justify-center z-50 hidden">
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg p-6 bg-white dark:bg-gray-800 w-full max-w-md relative">
-                <button id="close-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl focus:outline-none" title="Close">&times;</button>
-                <h4 class="text-lg font-semibold mb-2">Create a Button</h4>
-                <div class="mt-3">
-                    <button id="btn-add" class="inline-flex items-center gap-2 rounded-md bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 text-sm">Add Button</button>
-                </div>
+              <button id="close-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:text-gray-200 dark:hover:text-white text-2xl focus:outline-none" title="Close">&times;</button>
+              <h4 class="text-lg font-semibold mb-2">Create a Button</h4>
+              <label for="btn-name" class="block text-sm font-medium mb-1">Name</label>
+              <input type="text" id="btn-name" class="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="E.g., FastAPI, React App" />
+              <div class="mt-3">
+                <button id="btn-add" class="inline-flex items-center gap-2 rounded-md bg-gray-800 hover:bg-gray-700 dark:bg-primary-600 dark:hover:bg-primary-500 text-white px-3 py-2 text-sm">Add Button</button>
+              </div>
             </div>
         </div>
 
@@ -86,7 +88,7 @@
   <script>
     const vscode = acquireVsCodeApi();
 
-    
+    let prefs = [];
 
     // Render buttons list
     function renderButtons(items = []) {
@@ -122,12 +124,113 @@
       if (msg && msg.type === 'buttons:data') {
         renderButtons(msg.items || []);
       }
+
+      
     });
 
 
     function planFromPrompt(prompt) {
         vscode.postMessage({ type: 'submit', prompt });
     }
+
+    function reqfetchPossiblePreferences(prompt) {
+      
+      console.log('Requesting preferences for prompt:', prompt);
+      return vscode.postMessage({ type: 'fetchPreferences', prompt });
+    }
+
+    // Use getButtonByName from buttons.ts via postMessage/request
+    function getButtonByName(name) {
+      // This function sends a request to the extension to get the button by name.
+      // The extension should respond with a message of type 'button:found' and the button data.
+      vscode.postMessage({ type: 'button:getByName', name });
+      // Since this is async, checkIfReady should be refactored to handle the response in the message event.
+      // For now, return null as a placeholder.
+      return null;
+    }
+
+    function checkIfReady(prompt) {
+      // Try to get the button by name (async)
+      getButtonByName(prompt);
+      // The actual logic should be handled in the message event when 'button:found' is received.
+    }
+
+    // Listen for the button:found response from the extension
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg && msg.type === 'button:found' && msg.button) {
+      const button = msg.button;
+      const prompt = button.name;
+      if (button && Array.isArray(button.preferences) && button.preferences.length > 0) {
+        // If preferences exist and they are selected, send them, else make them selectable by rendering a dropdown
+      
+
+        if(button.preferences.some(p => p.saved)) {
+          // Some preferences are selected, send them
+          const selectedPrefs = button.preferences.filter(p => p.saved).map(p => p.value);
+          const fullPrompt = `${prompt}\nPreferences: ${selectedPrefs.join(', ')}`;
+          planFromPrompt(fullPrompt);
+          return;
+        } else {
+          // iterate though all preferences, then though its options and make a select dropdown with its options
+          const container = document.getElementById('buttons-list');
+          const buttonElem = container.querySelector(`#${button.id}`);
+          if (!buttonElem) return;
+          // Clear existing content
+          buttonElem.innerHTML = '';
+          // Create form elements
+          const form = document.createElement('form');
+          form.className = 'space-y-4';
+          button.preferences.forEach((pref, index) => {
+            const label = document.createElement('label');
+            label.className = 'block text-sm font-medium';
+            label.textContent = pref.value;
+            const select = document.createElement('select');
+            select.className = 'mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500';
+           // iterate though pref.value --> options
+            const options = pref.value;
+            options.forEach(opt => {
+              const option = document.createElement('option');
+              option.value = opt;
+              option.textContent = opt;
+              select.appendChild(option);
+            });
+          });
+            form.appendChild(label);
+            form.appendChild(select);
+          
+          const submitBtn = document.createElement('button');
+          submitBtn.type = 'submit';
+          submitBtn.className = 'inline-flex items-center gap-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 text-sm';
+          submitBtn.textContent = 'Submit';
+          form.appendChild(submitBtn);
+          // Handle form submission
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Update button.preferences based on selected options
+            const selects = form.querySelectorAll('select');
+            selects.forEach((select, idx) => {
+              const selectedValue = select.value;
+              button.preferences[idx].saved = true; // Mark as saved
+              button.preferences[idx].value = [selectedValue]; // Update value to selected option
+            });
+            // Send the full prompt with selected preferences
+            const selectedPrefs = button.preferences.filter(p => p.saved).map(p => p.value[0]);
+            const fullPrompt = `${prompt}\nPreferences: ${selectedPrefs.join(', ')}`;
+            planFromPrompt(fullPrompt);
+            // Re-render buttons to original state
+            renderButtons(msg.allButtons || []);
+          });
+          buttonElem.appendChild(form);
+          return;
+        }
+      
+      } else {
+        console.error('this should not happen');
+      }
+    }
+  });
+           
 
   // Delete a button by id (called from onclicks rendered in cards)
   function deleteButton(id) {
@@ -145,7 +248,8 @@
                 // Prevent triggering on delete button
                 if (e.target.tagName === 'BUTTON') return;
                 const prompt = btn.getAttribute('data-prompt');
-                if (prompt) planFromPrompt(prompt);
+                // if (prompt) planFromPrompt(prompt);
+                if (prompt) checkIfReady(prompt);
             });
         });
     }
@@ -219,22 +323,15 @@
       // debugger;
       
 
-      // fetchPossiblePreferences(name).then((prefs) => {
-      //   if (prefs && prefs.length > 0) {
-      //     text = prefs.join(', ');
-      //     alert('Preferences: ' + text);
-      //   } else {
-      //     text = 'No preferences found';
-      //   }
+      reqfetchPossiblePreferences(name);
 
-
-        vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
+      vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
       document.getElementById('btn-name').value = '';
     });
+    // });
 
     // On load: request list
     vscode.postMessage({ type: 'buttons:list' });
-
   </script>
   <script>
     // Map VS Code webview theme to Tailwind dark mode

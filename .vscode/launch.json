@@ -7,8 +7,6 @@
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "--enable-logging=stderr",
-        "--v=1"
       ],
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"

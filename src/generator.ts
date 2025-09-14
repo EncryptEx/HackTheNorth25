@@ -60,5 +60,5 @@ export async function executePlan(plan: ProjectPlan, workspace: string, output: 
         break;
     }
   }
-  vscode.window.showInformationMessage('AutoEnv plan executed.');
+  console.log('AutoEnv plan executed.');
 }
