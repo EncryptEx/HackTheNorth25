@@ -187,15 +187,24 @@
         alert('Please provide a name');
         return;
       }
-
+      
       let img = '';
       let text = '';
+      
+      
       // debugger;
-      // fetchPossiblePreferences().then(preferences => {
-      //   const img = preferences.find(p => p.startsWith('Image:'))?.split(': ')[1] || '';
-      //   const text = '';
+      
 
-      vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
+      // fetchPossiblePreferences(name).then((prefs) => {
+      //   if (prefs && prefs.length > 0) {
+      //     text = prefs.join(', ');
+      //     alert('Preferences: ' + text);
+      //   } else {
+      //     text = 'No preferences found';
+      //   }
+
+
+        vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
       document.getElementById('btn-name').value = '';
     });
 

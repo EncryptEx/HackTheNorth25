@@ -78,7 +78,7 @@ Respond ONLY with the JSON object. Do not respond with \`\`\`.`;
   
   
 
-export async function fetchPossiblePreferences(): Promise<string[]> {
+export async function fetchPossiblePreferences(prompt: string): Promise<string[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY env variable not set');
 
@@ -135,7 +135,7 @@ export async function fetchPossiblePreferences(): Promise<string[]> {
       contents: [
         {
           parts: [
-            { text: SYSTEM_PROMPT + " User prompt: " + "Django" }
+            { text: SYSTEM_PROMPT + " User prompt: " + prompt }
           ]
         }
       ]
