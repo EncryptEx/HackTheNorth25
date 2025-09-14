@@ -3,7 +3,7 @@ import { PromptPanel } from './promptPanel';
 import { fetchPossiblePreferences, planFromPrompt } from './aiPlanner';
 import { executePlan } from './generator';
 import * as dotenv from "dotenv";
-import { initializeButtonModule, getAllButtons, createButton, deleteButton } from './buttons';
+import { initializeButtonModule, getAllButtons, createButton, deleteButton, updateButton } from './buttons';
 
 import { Preference } from './buttons';
 
@@ -30,6 +30,40 @@ export function activate(context: vscode.ExtensionContext) {
         const prompt = String(msg.prompt || '').trim();
         if (!prompt) {
           vscode.window.showWarningMessage('Please describe your project.');
+          return;
+        }
+        output.show(true);
+        output.appendLine('Generating plan with Gemini...');
+        let plan;
+        try {
+          plan = await planFromPrompt(prompt);
+        } catch (e: any) {
+          vscode.window.showErrorMessage('Failed to generate plan: ' + (e?.message || e));
+          output.appendLine('Error: ' + (e?.message || e));
+          return;
+        }
+        const ok = await vscode.window.showInformationMessage(
+          'AutoEnv will create files and install dependencies in this workspace. Proceed?',
+          { modal: true },
+          'Yes'
+        );
+        if (ok === 'Yes') {
+          output.appendLine('== AutoEnv Plan ==');
+          output.appendLine(JSON.stringify(plan, null, 2));
+          await executePlan(plan, ws, output);
+        }
+      }
+      if (msg?.type === 'submitAndSave') {
+        const prompt = String(msg.prompt || '').trim();
+        const id = Number(msg.id);
+        if (!prompt || !Number.isFinite(id)) {
+          vscode.window.showWarningMessage('Missing prompt or button id.');
+          return;
+        }
+        // Save prompt into button.text
+        const updated = updateButton(id, { text: prompt });
+        if (!updated) {
+          vscode.window.showErrorMessage('Failed to save prompt: button not found.');
           return;
         }
         output.show(true);

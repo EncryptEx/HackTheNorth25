@@ -158,21 +158,21 @@
     // Listen for the button:found response from the extension
     window.addEventListener('message', (event) => {
       const msg = event.data;
-      if (msg && msg.type === 'button:found' && msg.button) {
+  if (msg && msg.type === 'button:found' && msg.button) {
       const button = msg.button;
       const prompt = button.name;
       let prefs = msg.prefs || [];
       
       console.log('Received button and preferences:', button, typeof(prefs), prefs, prefs.preferences, button && prefs.preferences.length > 0);
-      if (button && Object.keys(prefs.preferences).length > 0) {
+  if (button && prefs && prefs.preferences && Object.keys(prefs.preferences).length > 0) {
         // If preferences exist and they are selected, send them, else make them selectable by rendering a dropdown
         console.log('YAY');
-
+          button.img  = prefs.imageUrl;
 
         // If button text is not empty, send already builtin prompt
         if (button.text != "") {
           planFromPrompt(button.text);
-          console.log('Already saved button:', fullPrompt);
+          console.log('Already saved button:', button.text);
           return;
         } else {
 
@@ -181,59 +181,89 @@
           
           // iterate though all preferences, then though its options and make a select dropdown with its options
           const container = document.getElementById('buttons-list');
-          const buttonElem = container.querySelector(`#b-${button.id}`);
+          // create button element
+            const buttonElem = document.createElement('a');
+            buttonElem.id = `b-${button.id}`;
+            buttonElem.setAttribute('data-prompt', button.text || '');
+            buttonElem.innerHTML = `
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">
+              ${button.img ? `<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="${button.img}" alt="${button.name}">` : ''}
+              <div class="flex items-start gap-3">
+              <div class="flex-1">
+                <h4 class="text-base font-semibold">${button.name}</h4>
+              </div>
+              </div>
+              <button class="text-red-500 hover:text-red-700" onclick="deleteButton(${button.id})">X</button>
+            </div>
+            `;
+            container.appendChild(buttonElem);
+
+          // const buttonElem = container.querySelector(`#b-${button.id}`);
           console.log('found targets', container, buttonElem);
           if (!buttonElem) {
             console.log(buttonElem);
             return;
           }
 
-          
-          
-          // Create form elements
+          // Create form elements (hidden by default; shown when clicking this card)
           const form = document.createElement('form');
-          form.className = 'space-y-4';
-          button.preferences.forEach((pref, index) => {
+          form.className = 'space-y-4 hidden';
+          // prefs.preferences is an object map: { category: string[] }
+          const prefEntries = Object.entries(prefs.preferences || {});
+          prefEntries.forEach(([category, options], index) => {
             const label = document.createElement('label');
             label.className = 'block text-sm font-medium';
-            label.textContent = pref.value;
+            label.textContent = category || `Preference ${index + 1}`;
             const select = document.createElement('select');
             select.className = 'mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500';
-           // iterate though pref.value --> options
-            const options = pref.value;
-            options.forEach(opt => {
+            const optsArr = Array.isArray(options) ? options : [];
+            optsArr.forEach(opt => {
               const option = document.createElement('option');
-              option.value = opt;
-              option.textContent = opt;
+              option.value = String(opt);
+              option.textContent = String(opt);
               select.appendChild(option);
             });
-          });
             form.appendChild(label);
             form.appendChild(select);
-          
+          });
+
           const submitBtn = document.createElement('button');
-          submitBtn.type = 'submit';
+          submitBtn.type = 'button';
           submitBtn.className = 'inline-flex items-center gap-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 text-sm';
-          submitBtn.textContent = 'Submit';
+          submitBtn.textContent = 'Run';
           form.appendChild(submitBtn);
-          // Handle form submission
-          form.addEventListener('submit', (e) => {
+          const submitAndSaveBtn = document.createElement('button');
+          submitAndSaveBtn.type = 'button';
+          submitAndSaveBtn.className = 'ml-2 inline-flex items-center gap-2 rounded-md bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 text-sm';
+          submitAndSaveBtn.textContent = 'Run & Save';
+          form.appendChild(submitAndSaveBtn);
+          // Handle Run
+          submitBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            // Update button.preferences based on selected options
-            const selects = form.querySelectorAll('select');
-            selects.forEach((select, idx) => {
-              const selectedValue = select.value;
-              button.preferences[idx].saved = true; // Mark as saved
-              button.preferences[idx].value = [selectedValue]; // Update value to selected option
-            });
-            // Send the full prompt with selected preferences
-            const selectedPrefs = button.preferences.filter(p => p.saved).map(p => p.value[0]);
+            e.stopPropagation();
+            const selects = Array.from(form.querySelectorAll('select'));
+            const selectedPrefs = selects.map((select) => /** @type {HTMLSelectElement} */(select).value);
             const fullPrompt = `${prompt}\nPreferences: ${selectedPrefs.join(', ')}`;
+            form.classList.add('hidden');
             planFromPrompt(fullPrompt);
-            // Re-render buttons to original state
-            renderButtons(msg.allButtons || []);
+          });
+          // Handle Run & Save
+          submitAndSaveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const selects = Array.from(form.querySelectorAll('select'));
+            const selectedPrefs = selects.map((select) => /** @type {HTMLSelectElement} */(select).value);
+            const fullPrompt = `${prompt}\nPreferences: ${selectedPrefs.join(', ')}`;
+            form.classList.add('hidden');
+            vscode.postMessage({ type: 'submitAndSave', id: button.id, prompt: fullPrompt });
           });
           buttonElem.appendChild(form);
+          // Unhide the form only when clicking this newly created button card (not the delete X)
+          buttonElem.addEventListener('click', (e) => {
+            const tag = (e.target && /** @type {any} */(e.target).tagName) ? /** @type {any} */(e.target).tagName : '';
+            if (tag === 'BUTTON') return;
+            form.classList.remove('hidden');
+          });
           return;
         }
       
