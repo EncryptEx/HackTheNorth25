@@ -59,12 +59,11 @@ export function activate(context: vscode.ExtensionContext) {
       if (msg?.type === 'buttons:create') {
         const data = msg.data || {};
         // basic validation
-        if (!data.name) {
-          vscode.window.showWarningMessage('Button name is required.');
-        } else {
-          createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || ''), preferences: data.preferences || {} });
-          panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
-        }
+        
+        console.log('buttons:create recieved');
+        createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || ''), preferences: data.preferences || {} });
+        panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
+        
       }
       if (msg?.type === 'buttons:delete') {
         const id = Number(msg.id);
@@ -84,7 +83,9 @@ export function activate(context: vscode.ExtensionContext) {
           // update button
           const button = getAllButtons().find(b => b.name === prompt);
           if (button) {
-            console.log(prefs);  
+            console.log(prefs);   
+            // send a message to the webview with the preferences
+            panel.postMessage({ type: 'button:found', prefs: prefs, button: button });
           }
         });
       }

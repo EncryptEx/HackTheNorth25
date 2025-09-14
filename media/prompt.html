@@ -161,23 +161,35 @@
       if (msg && msg.type === 'button:found' && msg.button) {
       const button = msg.button;
       const prompt = button.name;
-      if (button && Array.isArray(button.preferences) && button.preferences.length > 0) {
-        // If preferences exist and they are selected, send them, else make them selectable by rendering a dropdown
+      let prefs = msg.prefs || [];
       
+      console.log('Received button and preferences:', button, typeof(prefs), prefs, prefs.preferences, button && prefs.preferences.length > 0);
+      if (button && Object.keys(prefs.preferences).length > 0) {
+        // If preferences exist and they are selected, send them, else make them selectable by rendering a dropdown
+        console.log('YAY');
 
-        if(button.preferences.some(p => p.saved)) {
-          // Some preferences are selected, send them
-          const selectedPrefs = button.preferences.filter(p => p.saved).map(p => p.value);
-          const fullPrompt = `${prompt}\nPreferences: ${selectedPrefs.join(', ')}`;
-          planFromPrompt(fullPrompt);
+
+        // If button text is not empty, send already builtin prompt
+        if (button.text != "") {
+          planFromPrompt(button.text);
+          console.log('Already saved button:', fullPrompt);
           return;
         } else {
+
+          // HARD PART. DROPDOWN SHITTY THING
+          
+          
           // iterate though all preferences, then though its options and make a select dropdown with its options
           const container = document.getElementById('buttons-list');
-          const buttonElem = container.querySelector(`#${button.id}`);
-          if (!buttonElem) return;
-          // Clear existing content
-          buttonElem.innerHTML = '';
+          const buttonElem = container.querySelector(`#b-${button.id}`);
+          console.log('found targets', container, buttonElem);
+          if (!buttonElem) {
+            console.log(buttonElem);
+            return;
+          }
+
+          
+          
           // Create form elements
           const form = document.createElement('form');
           form.className = 'space-y-4';
@@ -325,7 +337,7 @@
 
       reqfetchPossiblePreferences(name);
 
-      vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
+      vscode.postMessage({ type: 'buttons:create', data: { name, img, text, preferences: [] } });
       document.getElementById('btn-name').value = '';
     });
     // });
