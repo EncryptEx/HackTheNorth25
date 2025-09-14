@@ -42,12 +42,6 @@
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg p-6 bg-white dark:bg-gray-800 w-full max-w-md relative">
                 <button id="close-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl focus:outline-none" title="Close">&times;</button>
                 <h4 class="text-lg font-semibold mb-2">Create a Button</h4>
-                <label for="btn-name" class="block text-xs text-gray-600 dark:text-gray-400">Name</label>
-                <input id="btn-name" type="text" placeholder="Button name" class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:outline-none p-2" />
-                <label for="btn-img" class="block text-xs text-gray-600 dark:text-gray-400 mt-2">Image URL</label>
-                <input id="btn-img" type="url" placeholder="https://..." class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:outline-none p-2" />
-                <label for="btn-text" class="block text-xs text-gray-600 dark:text-gray-400 mt-2">Long Text</label>
-                <textarea id="btn-text" rows="5" placeholder="Enter long description..." class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:outline-none p-2"></textarea>
                 <div class="mt-3">
                     <button id="btn-add" class="inline-flex items-center gap-2 rounded-md bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 text-sm">Add Button</button>
                 </div>
@@ -135,6 +129,12 @@
         vscode.postMessage({ type: 'submit', prompt });
     }
 
+  // Delete a button by id (called from onclicks rendered in cards)
+  function deleteButton(id) {
+    if (!Number.isFinite(Number(id))) return;
+    vscode.postMessage({ type: 'buttons:delete', id: Number(id) });
+  }
+
     // Attach click listeners to all button elements with id starting with 'b-'
     function attachButtonListeners() {
         const container = document.getElementById('buttons-list');
@@ -183,20 +183,25 @@
     // Form: create button
     document.getElementById('btn-add').addEventListener('click', () => {
       const name = String(document.getElementById('btn-name').value || '').trim();
-      const img = String(document.getElementById('btn-img').value || '').trim();
-      const text = String(document.getElementById('btn-text').value || '').trim();
       if (!name) {
         alert('Please provide a name');
         return;
       }
+
+      let img = '';
+      let text = '';
+      // debugger;
+      // fetchPossiblePreferences().then(preferences => {
+      //   const img = preferences.find(p => p.startsWith('Image:'))?.split(': ')[1] || '';
+      //   const text = '';
+
       vscode.postMessage({ type: 'buttons:create', data: { name, img, text } });
       document.getElementById('btn-name').value = '';
-      document.getElementById('btn-img').value = '';
-      document.getElementById('btn-text').value = '';
     });
 
     // On load: request list
     vscode.postMessage({ type: 'buttons:list' });
+
   </script>
   <script>
     // Map VS Code webview theme to Tailwind dark mode

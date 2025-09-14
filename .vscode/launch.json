@@ -6,12 +6,15 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--enable-logging=stderr",
+        "--v=1"
       ],
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],
       "preLaunchTask": null
+      
     }
   ]
 }

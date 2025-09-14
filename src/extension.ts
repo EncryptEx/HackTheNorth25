@@ -3,7 +3,7 @@ import { PromptPanel } from './promptPanel';
 import { planFromPrompt } from './aiPlanner';
 import { executePlan } from './generator';
 import * as dotenv from "dotenv";
-import { initializeButtonModule, getAllButtons, createButton } from './buttons';
+import { initializeButtonModule, getAllButtons, createButton, deleteButton } from './buttons';
 
 
 
@@ -12,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
   dotenv.config({ path: __dirname + "/../.env" });
   const apiKey = process.env.GEMINI_API_KEY;
   
-  vscode.window.showInformationMessage(`API key is ${apiKey}`);
+  // vscode.window.showInformationMessage(`API key is ${apiKey}`);
   initializeButtonModule(context);
   
   const output = vscode.window.createOutputChannel('AutoEnv');
@@ -64,6 +64,12 @@ export function activate(context: vscode.ExtensionContext) {
           createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || '') });
           panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
         }
+      }
+      if (msg?.type === 'buttons:delete') {
+        const id = Number(msg.id);
+        if (!Number.isFinite(id)) return;
+        deleteButton(id);
+        panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
       }
     });
   });
