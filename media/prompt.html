@@ -158,6 +158,30 @@
             container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No buttons yet. Create the first one above.</p>';
             return;
         }
+
+          // TODO REMOVE THIS: Use default buttons if items is empty
+            items = [
+          {
+              id: 1,
+              name: 'FastAPI',
+              img: 'https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png',
+              text: 'Create a FastAPI project: A modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.',
+          },
+          {
+              id: 2,
+              name: 'Flask',
+              img: 'https://i.ibb.co/0R0BWcyP/image-psd-1.png',
+              text: 'Create a Flask project: A lightweight WSGI web application framework in Python, ideal for simple web apps and APIs.',
+          },
+          {
+              id: 3,
+              name: 'React App',
+              img: 'https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg',
+              text: 'Create a React project: A JavaScript library for building user interfaces, commonly used for single-page applications.',
+          },
+            ];
+        
+
         container.innerHTML = items.map(function(b){
             const safeName = String(b.name || '');
             const safeImg = b.img ? '<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="' + String(b.img) + '" alt="' + safeName + '">' : '';
