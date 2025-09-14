@@ -35,7 +35,7 @@ export class PromptPanel {
     try {
       return fs.readFileSync(htmlPath, 'utf8');
     } catch (e) {
-      return '<html><body><p>Failed to load UI.</p></body></html>';
+      return '<html><body><p>Failed to load UI. ' + e + '</p></body></html>';
     }
   }
 }
