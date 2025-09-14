@@ -15,6 +15,8 @@ export function activate(context: vscode.ExtensionContext) {
   
   console.log(`API key is ${apiKey}`);
   initializeButtonModule(context);
+  // Cache prepared preferences per button id for quick access in the webview
+  const preparedPrefs = new Map<number, any>();
   
   const output = vscode.window.createOutputChannel('AutoEnv');
   const disposable = vscode.commands.registerCommand('autoenv.newProject', async () => {
@@ -53,51 +55,28 @@ export function activate(context: vscode.ExtensionContext) {
           await executePlan(plan, ws, output);
         }
       }
-      if (msg?.type === 'submitAndSave') {
-        const prompt = String(msg.prompt || '').trim();
-        const id = Number(msg.id);
-        if (!prompt || !Number.isFinite(id)) {
-          vscode.window.showWarningMessage('Missing prompt or button id.');
-          return;
-        }
-        // Save prompt into button.text
-        const updated = updateButton(id, { text: prompt });
-        if (!updated) {
-          vscode.window.showErrorMessage('Failed to save prompt: button not found.');
-          return;
-        }
-        output.show(true);
-        output.appendLine('Generating plan with Gemini...');
-        let plan;
-        try {
-          plan = await planFromPrompt(prompt);
-        } catch (e: any) {
-          vscode.window.showErrorMessage('Failed to generate plan: ' + (e?.message || e));
-          output.appendLine('Error: ' + (e?.message || e));
-          return;
-        }
-        const ok = await vscode.window.showInformationMessage(
-          'AutoEnv will create files and install dependencies in this workspace. Proceed?',
-          { modal: true },
-          'Yes'
-        );
-        if (ok === 'Yes') {
-          output.appendLine('== AutoEnv Plan ==');
-          output.appendLine(JSON.stringify(plan, null, 2));
-          await executePlan(plan, ws, output);
-        }
-      }
       if (msg?.type === 'buttons:list') {
         panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
       }
       if (msg?.type === 'buttons:create') {
         const data = msg.data || {};
-        // basic validation
-        
-        console.log('buttons:create recieved');
-        createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || ''), preferences: data.preferences || {} });
+        console.log('buttons:create received');
+        const newBtn = createButton({ name: String(data.name), img: String(data.img || ''), text: String(data.text || ''), preferences: data.preferences || {} });
+        // Update list immediately so the new card appears
         panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
-        
+        // Background: fetch preferences and image
+        fetchPossiblePreferences(newBtn.name).then((prefs) => {
+          preparedPrefs.set(newBtn.id, prefs);
+          // Update image if provided
+          if (prefs && prefs.imageUrl) {
+            updateButton(newBtn.id, { img: String(prefs.imageUrl) });
+            panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
+          }
+          // Inform webview that prefs are ready for this button
+          panel.postMessage({ type: 'preferences:prepared', id: newBtn.id, prefs });
+        }).catch(err => {
+          console.error('fetchPossiblePreferences failed:', err);
+        });
       }
       if (msg?.type === 'buttons:delete') {
         const id = Number(msg.id);
@@ -114,14 +93,36 @@ export function activate(context: vscode.ExtensionContext) {
         }
         // use fetchPreferences from aiPlanner
         fetchPossiblePreferences(prompt).then((prefs) => {
-          // update button
           const button = getAllButtons().find(b => b.name === prompt);
           if (button) {
-            console.log(prefs);   
-            // send a message to the webview with the preferences
-            panel.postMessage({ type: 'button:found', prefs: prefs, button: button });
+            preparedPrefs.set(button.id, prefs);
+            if (prefs && prefs.imageUrl) {
+              updateButton(button.id, { img: String(prefs.imageUrl) });
+              panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
+            }
+            panel.postMessage({ type: 'button:found', prefs, button });
           }
+        }).catch(err => {
+          console.error('fetchPreferences failed:', err);
         });
+      }
+
+      if (msg?.type === 'button:getByName') {
+        const name = String(msg.name || '').trim();
+        if (!name) return;
+        const button = getAllButtons().find(b => b.name === name);
+        if (button) {
+          const prefs = preparedPrefs.get(button.id) || null;
+          panel.postMessage({ type: 'button:found', button, prefs });
+        }
+      }
+
+      if (msg?.type === 'button:saveText') {
+        const id = Number(msg.id);
+        const text = String(msg.text || '');
+        if (!Number.isFinite(id) || !text) return;
+        updateButton(id, { text });
+        panel.postMessage({ type: 'buttons:data', items: getAllButtons() });
       }
   });
 

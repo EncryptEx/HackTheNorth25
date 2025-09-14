@@ -88,7 +88,10 @@
   <script>
     const vscode = acquireVsCodeApi();
 
-    let prefs = [];
+  let prefs = [];
+  // cache preferences by button id and track when to show immediately after fetch
+  const prefsCache = {};
+  let pendingShowId = null;
 
     // Render buttons list
     function renderButtons(items = []) {
@@ -102,7 +105,7 @@
   const safeImg = b.img ? '<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="' + String(b.img) + '" alt="' + safeName + '">' : '';
         const safeText = String(b.text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         return [
-        '<a id=' + b.id + '>',
+        '<div id=' + b.id + ' class="cursor-pointer select-none">',
           '<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">',
             safeImg,
             '<div class="flex items-start gap-3">',
@@ -113,7 +116,7 @@
             // add X icon to delete button
             '<button class="text-red-500 hover:text-red-700" onclick="deleteButton(' + b.id + ')">X</button>',
           '</div>',
-        '</a>'
+        '</div>'
         ].join('');
       }).join('');
     }
@@ -123,6 +126,12 @@
       const msg = event.data;
       if (msg && msg.type === 'buttons:data') {
         renderButtons(msg.items || []);
+      }
+      if (msg && msg.type === 'preferences:prepared') {
+        // cache prepared preferences for later use
+        if (msg && typeof msg.id === 'number') {
+          prefsCache[msg.id] = msg.prefs || null;
+        }
       }
 
       
@@ -179,33 +188,16 @@
           // HARD PART. DROPDOWN SHITTY THING
           
           
-          // iterate though all preferences, then though its options and make a select dropdown with its options
+          // Use the existing card for this button
           const container = document.getElementById('buttons-list');
-          // create button element
-            const buttonElem = document.createElement('a');
-            buttonElem.id = `b-${button.id}`;
-            buttonElem.setAttribute('data-prompt', button.text || '');
-            buttonElem.innerHTML = `
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">
-              ${button.img ? `<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="${button.img}" alt="${button.name}">` : ''}
-              <div class="flex items-start gap-3">
-              <div class="flex-1">
-                <h4 class="text-base font-semibold">${button.name}</h4>
-              </div>
-              </div>
-              <button class="text-red-500 hover:text-red-700" onclick="deleteButton(${button.id})">X</button>
-            </div>
-            `;
-            container.appendChild(buttonElem);
-
-          // const buttonElem = container.querySelector(`#b-${button.id}`);
+          const buttonElem = container.querySelector(`#b-${button.id}`);
           console.log('found targets', container, buttonElem);
           if (!buttonElem) {
-            console.log(buttonElem);
+            console.log('Button element not found for id', button.id);
             return;
           }
 
-          // Create form elements (hidden by default; shown when clicking this card)
+          // Create form elements (hidden by default; shown when user requested)
           const form = document.createElement('form');
           form.className = 'space-y-4 hidden';
           // prefs.preferences is an object map: { category: string[] }
@@ -215,7 +207,7 @@
             label.className = 'block text-sm font-medium';
             label.textContent = category || `Preference ${index + 1}`;
             const select = document.createElement('select');
-            select.className = 'mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500';
+            select.className = 'mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100';
             const optsArr = Array.isArray(options) ? options : [];
             optsArr.forEach(opt => {
               const option = document.createElement('option');
@@ -226,19 +218,22 @@
             form.appendChild(label);
             form.appendChild(select);
           });
-
-          const submitBtn = document.createElement('button');
-          submitBtn.type = 'button';
-          submitBtn.className = 'inline-flex items-center gap-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 text-sm';
-          submitBtn.textContent = 'Run';
-          form.appendChild(submitBtn);
-          const submitAndSaveBtn = document.createElement('button');
-          submitAndSaveBtn.type = 'button';
-          submitAndSaveBtn.className = 'ml-2 inline-flex items-center gap-2 rounded-md bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 text-sm';
-          submitAndSaveBtn.textContent = 'Run & Save';
-          form.appendChild(submitAndSaveBtn);
+          // Actions: Run and Run & Save
+          const actions = document.createElement('div');
+          actions.className = 'flex gap-2 pt-2';
+          const runBtn = document.createElement('button');
+          runBtn.type = 'button';
+          runBtn.className = 'inline-flex items-center gap-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 text-sm';
+          runBtn.textContent = 'Run';
+          const runSaveBtn = document.createElement('button');
+          runSaveBtn.type = 'button';
+          runSaveBtn.className = 'inline-flex items-center gap-2 rounded-md bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 text-sm';
+          runSaveBtn.textContent = 'Run & Save';
+          actions.appendChild(runBtn);
+          actions.appendChild(runSaveBtn);
+          form.appendChild(actions);
           // Handle Run
-          submitBtn.addEventListener('click', (e) => {
+          runBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             const selects = Array.from(form.querySelectorAll('select'));
@@ -248,22 +243,24 @@
             planFromPrompt(fullPrompt);
           });
           // Handle Run & Save
-          submitAndSaveBtn.addEventListener('click', (e) => {
+          runSaveBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             const selects = Array.from(form.querySelectorAll('select'));
             const selectedPrefs = selects.map((select) => /** @type {HTMLSelectElement} */(select).value);
             const fullPrompt = `${prompt}\nPreferences: ${selectedPrefs.join(', ')}`;
+            vscode.postMessage({ type: 'button:saveText', id: button.id, text: fullPrompt });
             form.classList.add('hidden');
-            vscode.postMessage({ type: 'submitAndSave', id: button.id, prompt: fullPrompt });
+            planFromPrompt(fullPrompt);
           });
           buttonElem.appendChild(form);
-          // Unhide the form only when clicking this newly created button card (not the delete X)
-          buttonElem.addEventListener('click', (e) => {
-            const tag = (e.target && /** @type {any} */(e.target).tagName) ? /** @type {any} */(e.target).tagName : '';
-            if (tag === 'BUTTON') return;
+          // If this was requested by a card click, show now
+          const idStr = buttonElem.getAttribute('id') || '';
+          const id = Number(idStr.replace('b-',''));
+          if (Number.isFinite(id) && pendingShowId === id) {
             form.classList.remove('hidden');
-          });
+            pendingShowId = null;
+          }
           return;
         }
       
@@ -289,9 +286,25 @@
             btn.addEventListener('click', function (e) {
                 // Prevent triggering on delete button
                 if (e.target.tagName === 'BUTTON') return;
-                const prompt = btn.getAttribute('data-prompt');
-                // if (prompt) planFromPrompt(prompt);
-                if (prompt) checkIfReady(prompt);
+                // If form exists, just show it
+                const existingForm = btn.querySelector('form');
+                if (existingForm) {
+                  existingForm.classList.remove('hidden');
+                  return;
+                }
+                const idStr = btn.getAttribute('id') || '';
+                const id = Number(idStr.replace('b-',''));
+                const name = btn.getAttribute('data-name') || '';
+                if (Number.isFinite(id) && prefsCache[id]) {
+                  // Build and show immediately from cache
+                  const fakeMsg = { button: { id, name, text: '' }, prefs: prefsCache[id] };
+                  // Simulate the existing handler path
+                  window.postMessage({ type: 'button:found', ...fakeMsg }, '*');
+                  pendingShowId = id;
+                } else if (name) {
+                  pendingShowId = Number.isFinite(id) ? id : null;
+                  reqfetchPossiblePreferences(name);
+                }
             });
         });
     }
@@ -305,53 +318,32 @@
             return;
         }
 
-          // TODO REMOVE THIS: Use default buttons if items is empty
-            items = [
-          {
-              id: 1,
-              name: 'FastAPI',
-              img: 'https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png',
-              text: 'Create a FastAPI project: A modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.',
-          },
-          {
-              id: 2,
-              name: 'Flask',
-              img: 'https://i.ibb.co/0R0BWcyP/image-psd-1.png',
-              text: 'Create a Flask project: A lightweight WSGI web application framework in Python, ideal for simple web apps and APIs.',
-          },
-          {
-              id: 3,
-              name: 'React App',
-              img: 'https://upload.wikimedia.org/wikipedia/commons/a/a7/React-icon.svg',
-              text: 'Create a React project: A JavaScript library for building user interfaces, commonly used for single-page applications.',
-          },
-            ];
-        
+  // Use provided items as-is
 
         container.innerHTML = items.map(function(b){
             const safeName = String(b.name || '');
             const safeImg = b.img ? '<img class="rounded-md border border-gray-200 dark:border-gray-700 mt-1" src="' + String(b.img) + '" alt="' + safeName + '">' : '';
             const safeText = String(b.text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             // Use id 'b-' + b.id and store prompt in data-prompt
-            return [
-                '<a id="b-' + b.id + '" data-prompt="' + (b.prompt ? String(b.prompt).replace(/"/g, '&quot;') : safeText) + '">',
-                    '<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">',
-                        safeImg,
-                        '<div class="flex items-start gap-3">',
-                            '<div class="flex-1">',
-                                '<h4 class="text-base font-semibold">' + safeName + '</h4>',
-                            '</div>',
-                        '</div>',
-                        '<button class="text-red-500 hover:text-red-700" onclick="deleteButton(' + b.id + ')">X</button>',
-                    '</div>',
-                '</a>'
-            ].join('');
+      return [
+        '<div id="b-' + b.id + '" role="button" tabindex="0" class="cursor-pointer select-none" data-name="' + safeName.replace(/\"/g, '&quot;') + '" data-prompt="' + (b.prompt ? String(b.prompt).replace(/\"/g, '&quot;') : safeText) + '">',
+          '<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4">',
+            safeImg,
+            '<div class="flex items-start gap-3">',
+              '<div class="flex-1">',
+                '<h4 class="text-base font-semibold">' + safeName + '</h4>',
+              '</div>',
+            '</div>',
+            '<button class="text-red-500 hover:text-red-700" onclick="deleteButton(' + b.id + ')">X</button>',
+          '</div>',
+        '</div>'
+      ].join('');
         }).join('');
         attachButtonListeners();
     };
 
     // Form: create button
-    document.getElementById('btn-add').addEventListener('click', () => {
+  document.getElementById('btn-add').addEventListener('click', () => {
       const name = String(document.getElementById('btn-name').value || '').trim();
       if (!name) {
         alert('Please provide a name');
@@ -363,9 +355,6 @@
       
       
       // debugger;
-      
-
-      reqfetchPossiblePreferences(name);
 
       vscode.postMessage({ type: 'buttons:create', data: { name, img, text, preferences: [] } });
       document.getElementById('btn-name').value = '';
